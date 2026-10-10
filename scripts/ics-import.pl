@@ -190,8 +190,7 @@ sub cmd_photo {
     my $cfg = config();
     my $ics = zai_ics_from_files($cfg, $args);
     if ($OPT{out}) {
-        open my $fh, '>', $OPT{out} or die "Cannot write $OPT{out}: $!\n";
-        binmode $fh;
+        open my $fh, '>:raw', $OPT{out} or die "Cannot write $OPT{out}: $!\n";
         print {$fh} $ics;
         close $fh;
         print "Wrote extracted ICS to $OPT{out}\n";
@@ -470,8 +469,7 @@ EOT
 
 sub encode_file_b64 {
     my ($file) = @_;
-    open my $fh, '<', $file or die "Cannot read $file: $!\n";
-    binmode $fh;
+    open my $fh, '<:raw', $file or die "Cannot read $file: $!\n";
     local $/;
     my $data = <$fh>;
     close $fh;
