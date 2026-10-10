@@ -348,9 +348,8 @@ sub format_event_line {
         ($end ? " .. $end" : ''), $title, $extra;
 }
 
-sub slurp_ics_source {
-    my ($source) = @_;
-    if ($source =~ m{^https?://}i or $source =~ m{^webcal://}i) {
+sub slurp_ics_source( $source ) {
+    if ($source =~ m{^(https?|webcal)://}i) {
         (my $url = $source) =~ s{^webcal://}{http://}i;
         verbose( "Fetching $url ..." );
         my $res = HTTP::Tiny->new(timeout => 60)->get($url);
