@@ -365,8 +365,8 @@ sub slurp_ics_source {
         return <STDIN>;
     }
     die "No such file: $source\n" unless -f $source;
-    open my $fh, '<', $source or die "Cannot read $source: $!\n";
-    binmode $fh;
+    open my $fh, '<:raw', $source
+        or die "Cannot read $source: $!\n";
     local $/;
     my $data = <$fh>;
     close $fh;
