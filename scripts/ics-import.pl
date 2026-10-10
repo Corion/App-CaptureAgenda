@@ -165,11 +165,13 @@ sub cmd_import {
               -message => 'usage: ics-import.pl import [--calendar NAME] FILE.ics [FILE.ics | URL ...]')
         unless @$args;
 
+    my $cfg = config();
+
     my $n_total = 0;
     my $n_files = 0;
     for my $source (@$args) {
         my $ics = slurp_ics_source($source);
-        my ($count) = import_ics_text($ics, $source);
+        my ($count) = import_ics_text($cfg,$ics, $source);
         $n_total  += $count;
         $n_files  += 1;
     }
@@ -185,7 +187,8 @@ sub cmd_photo {
               -message => 'usage: ics-import.pl photo [--prompt TEXT] [--out FILE.ics] [--dry-run|--no-import] IMAGE|PDF [IMAGE|PDF ...]')
         unless @$args;
 
-    my $ics = zai_ics_from_files($args);
+    my $cfg = config();
+    my $ics = zai_ics_from_files($cfg, $args);
     if ($OPT{out}) {
         open my $fh, '>', $OPT{out} or die "Cannot write $OPT{out}: $!\n";
         binmode $fh;
@@ -198,7 +201,7 @@ sub cmd_photo {
         print $ics, "\n" unless $OPT{out};
         return 0;
     }
-    import_ics_text($ics, ($OPT{out} ? $OPT{out} : join(' ', @$args)));
+    import_ics_text($cfg, $ics, ($OPT{out} ? $OPT{out} : join(' ', @$args)));
     return 0;
 }
 
@@ -207,7 +210,7 @@ sub cmd_photo {
 # ---------------------------------------------------------------------------
 
 sub import_ics_text {
-    my ($ics, $label) = @_;
+    my ($config, $ics, $label) = @_;
 
     die "The ICS payload from '$label' is empty.\n"
         unless defined $ics && length $ics;
@@ -215,8 +218,8 @@ sub import_ics_text {
     my $caldav;
     my $cal;
     unless ($OPT{'dry-run'}) {
-        $caldav = connect_caldav();
-        $cal    = pick_calendar($caldav);
+        $caldav = connect_caldav($config);
+        $cal    = pick_calendar($config, $caldav);
     }
 
     my @events = eval { $caldav
@@ -375,9 +378,8 @@ sub slurp_ics_source {
 # ---------------------------------------------------------------------------
 
 sub zai_ics_from_files {
-    my ($files) = @_;
+    my ($cfg,$files) = @_;
 
-    my $cfg     = config();
     my $api_key = $cfg->{zai_api_key} // '';
     die <<"EOT" unless length $api_key;
 No z.ai API key configured. Get one at https://z.ai and either
@@ -519,9 +521,7 @@ sub extract_ics {
 # CalDAV connection & calendar selection
 # ---------------------------------------------------------------------------
 
-sub connect_caldav {
-    my $cfg = config();
-
+sub connect_caldav($cfg) {
     my $url  = $cfg->{url}  or die "No CalDAV URL configured (CALDAV_URL or 'url' in the YAML config -- see: ics-import.pl init)\n";
     my $user = $cfg->{user} or die "No CalDAV user configured (CALDAV_USER or 'user' in the YAML config)\n";
     my $pass = $OPT{password} // $cfg->{password};
@@ -544,9 +544,7 @@ sub connect_caldav {
     return $caldav;
 }
 
-sub pick_calendar {
-    my ($caldav) = @_;
-    my $cfg   = config();
+sub pick_calendar($cfg, $caldav) {
     my $want  = $OPT{calendar} // $cfg->{calendar};
 
     my $cals = $caldav->GetCalendars();
