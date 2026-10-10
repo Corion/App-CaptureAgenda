@@ -102,6 +102,12 @@ sub main {
     return $code;
 }
 
+sub verbose(@msg) {
+    if( $OPT{verbose}) {
+        say $_ for @msg;
+    }
+}
+
 # --- init ------------------------------------------------------------------
 
 sub cmd_init {
@@ -259,7 +265,7 @@ sub import_ics_text {
         }
         $created++;
         print "  [$i] created      $line\n";
-        print "      -> $href\n" if $OPT{verbose};
+        verbose( "      -> $href");
     }
 
     if ($OPT{'dry-run'}) {
@@ -343,7 +349,7 @@ sub slurp_ics_source {
     my ($source) = @_;
     if ($source =~ m{^https?://}i or $source =~ m{^webcal://}i) {
         (my $url = $source) =~ s{^webcal://}{http://}i;
-        print "Fetching $url ...\n" if $OPT{verbose};
+        verbose( "Fetching $url ..." );
         my $res = HTTP::Tiny->new(timeout => 60)->get($url);
         die "Failed to fetch $url: $res->{status} $res->{reason}\n"
             unless $res->{success};
@@ -414,8 +420,7 @@ EOT
     };
 
     my $json = JSON::PP->new->canonical(1);
-    print "Calling z.ai model '$model' with " . scalar(@$files) . " file(s) ...\n"
-        if $OPT{verbose};
+    verbose( "Calling z.ai model '$model' with " . scalar(@$files) . " file(s) ..." );
 
     my $ua = HTTP::Tiny->new(
         timeout    => 300,            # vision extraction can be slow
@@ -449,7 +454,7 @@ EOT
     die "z.ai returned an empty response.\n" unless defined $choice && length $choice;
 
     if ($data->{usage}) {
-        printf "[usage: %s tokens]\n", $data->{usage}{total_tokens} if $OPT{verbose};
+        verbose( sprintf "[usage: %s tokens]\n", $data->{usage}{total_tokens} );
     }
 
     my $ics = extract_ics($choice);
@@ -485,7 +490,7 @@ sub pdf_to_image_parts {
 
     my @pages = sort glob("$prefix*.png");
     die "pdftoppm produced no pages for '$pdf'\n" unless @pages;
-    print "Converted PDF to ", scalar(@pages), " page image(s)\n" if $OPT{verbose};
+    verbose( sprintf "Converted PDF to %d page image(s)", scalar(@pages) );
 
     return map { {
         type      => 'image_url',
