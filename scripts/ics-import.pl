@@ -96,7 +96,6 @@ sub main {
 
     %OPT = %o;
     $OPT{prompt} = $EXTRACTION_PROMPT . ($o{prompt} ? "\n\nAdditional user instructions:\n$o{prompt}\n" : '');
-    $OPT{model}  //= $o{model};
 
     my $code = __PACKAGE__->can("cmd_$command")->(\@ARGV);
     return $code;
