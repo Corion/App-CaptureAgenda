@@ -11,6 +11,7 @@
 # manual, including Termux installation instructions.
 
 use 5.020;
+use experimental 'signatures';
 
 use Getopt::Long qw(:config bundling no_ignore_case);
 use Pod::Usage;
