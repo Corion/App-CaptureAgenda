@@ -5,11 +5,16 @@ use experimental 'signatures';
 use Carp 'croak';
 use MIME::Base64 qw(encode_base64);
 use Moo 2;
-
+use JSON::PP;
 
 has 'ua' => (
     is => 'lazy',
     default => \&_build_ua,
+);
+
+has 'json' => (
+    is => 'lazy',
+    default => sub { JSON::PP->new->canonical(1) },
 );
 
 has 'model' => (
@@ -86,7 +91,7 @@ sub build_prompt( $self, %args ) {
 sub build_prompt_request( $self, %args ) {
     my $api_key = delete $args{ api_key } // $self->api_key;
     my $payload = $self->build_prompt( %args );
-    my $json = JSON::PP->new->canonical(1);
+    my $json = $self->json;
     my @request = (
         $self->api_base . "/chat/completions",
         {
