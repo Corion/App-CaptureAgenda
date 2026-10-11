@@ -12,6 +12,11 @@ has 'ua' => (
     default => \&_build_ua,
 );
 
+has 'agent_name' => (
+    is => 'rw',
+    default => "zai-runner/" . __PACKAGE__->VERSION,
+);
+
 has 'json' => (
     is => 'lazy',
     default => sub { JSON::PP->new->canonical(1) },
@@ -44,6 +49,13 @@ has 'max_tokens' => (
 has 'prompt' => (
     is => 'rw',
 );
+
+sub _build_ua( $self ) {
+    return HTTP::Tiny->new(
+        timeout => 300,
+        agent   => $self->agent_name,
+    );
+};
 
 sub build_prompt( $self, %args ) {
     $args{ prompt } //= $self->prompt;
@@ -128,6 +140,33 @@ sub pdf_to_image_parts( $self, $pdf ) {
         type      => 'image_url',
         image_url => { url => 'data:image/png;base64,' . $self->encode_file_b64($_) },
     } } @pages;
+}
+
+=head2 C<< ->run_request >>
+
+Simplistic all-in-one helper to run a request and return the resuits
+or error.
+
+    my ($res, $err) = $zai->run_request( ... );
+    die $err if $err;
+
+=cut
+
+sub run_request( $self, %args ) {
+
+    my ($url, $opts) = $self->build_prompt_request(%args);
+    my $res = $self->ua->post( $url, $opts );
+
+    unless ($res->{success}) {
+        my $detail = eval {
+            my $d = JSON::PP->new->decode($res->{content});
+            $d->{error}{message} // $d->{message} // '';
+        } // '';
+        return (undef, sprintf "z.ai request failed: %s %s %s\n",
+            $res->{status}, $res->{reason}, $detail);
+    }
+
+    return $self->decode_response( $res->{content});
 }
 
 sub encode_file_b64( $self, $file ) {

@@ -24,7 +24,6 @@ use File::Basename qw(basename dirname);
 use File::Path qw(make_path);
 use File::Spec;
 use File::Temp ();
-use HTTP::Tiny;
 use JSON::PP ();
 use YAML::Tiny ();
 use ZAI::Runner;
@@ -404,31 +403,15 @@ EOT
     my $zai = ZAI::Runner->new(
         api_base    => $base,
         api_key     => $api_key,
+        agent_name  => "ics-import/$VERSION",
         model       => $model,
         prompt      => $EXTRACTION_PROMPT,
         temperature => 0.1,
         max_tokens  => $ZAI_MAX_TOKENS
     );
+    my ($data, $err) = $zai->run_request( files => $files );
+    die $err if $err;
 
-    my $ua = HTTP::Tiny->new(
-        timeout    => 300,            # vision extraction can be slow
-        agent      => "ics-import/$VERSION",
-    );
-    my ($url, $opts) = $zai->build_prompt_request(
-        files => $files,
-    );
-    my $res = $ua->post( $url, $opts );
-
-    unless ($res->{success}) {
-        my $detail = eval {
-            my $d = JSON::PP->new->decode($res->{content});
-            $d->{error}{message} // $d->{message} // '';
-        } // '';
-        die sprintf "z.ai request failed: %s %s %s\n",
-            $res->{status}, $res->{reason}, $detail;
-    }
-
-    my $data = $zai->decode_response( $res->{content});
     my $choice = $data->{choices}->[0]->{message}->{content};
     if (ref $choice eq 'ARRAY') {   # some providers return message parts
         $choice = join '', map { $_->{text} // '' } @$choice;
