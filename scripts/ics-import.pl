@@ -82,7 +82,7 @@ sub main {
         'verbose|v',
     ) or pod2usage(-exitval => 2, -verbose => 1);
 
-    if ($o{version}) { print "ics-import $VERSION\n"; return 0 }
+    if ($o{version}) { say "ics-import $VERSION"; return 0 }
     if ($o{help})    { pod2usage(-exitval => 0, -verbose => 1) }
     if ($o{man})     { pod2usage(-exitval => 0, -verbose => 2) }
 
@@ -115,7 +115,7 @@ sub cmd_init {
 
     my ($path, $exists) = config_paths();
     if ($exists) {
-        print "Config already exists: $path\n";
+        say "Config already exists: $path";
         return 0;
     }
     my $fallback = 0;
@@ -191,11 +191,11 @@ sub cmd_photo {
         open my $fh, '>:raw', $OPT{out} or die "Cannot write $OPT{out}: $!\n";
         print {$fh} $ics;
         close $fh;
-        print "Wrote extracted ICS to $OPT{out}\n";
+        say "Wrote extracted ICS to $OPT{out}";
     }
 
     if ($OPT{'no-import'}) {
-        print $ics, "\n" unless $OPT{out};
+        say $ics unless $OPT{out};
         return 0;
     }
     import_ics_text($cfg, $ics, ($OPT{out} ? $OPT{out} : join(' ', @$args)));
@@ -269,12 +269,12 @@ sub import_ics_text {
     }
 
     if ($OPT{'dry-run'}) {
-        print "Dry run: nothing was uploaded.\n";
+        say "Dry run: nothing was uploaded.";
     }
     else {
-        printf "Imported %d of %d event(s) into calendar '%s'.\n",
+        say sprintf "Imported %d of %d event(s) into calendar '%s'.",
             $created, scalar(@events), $cal->{name};
-        print "Note: re-importing the same UIDs updates the events in place.\n";
+        say "Note: re-importing the same UIDs updates the events in place.";
     }
     return (scalar @events, $created);
 }
