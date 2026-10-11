@@ -656,7 +656,7 @@ C<ZAI_API_BASE> (default https://api.z.ai/api/paas/v4).
   ics-import.pl import -n test.ics
   ics-import.pl import    test.ics
 
-  # photograph a timetable, let z.ai build the ICS, import it
+  # photograph a timetable, build the ICS, import it
   ics-import.pl photo poster.jpg --prompt 'Only the concerts, ignore movies'
   ics-import.pl photo menu.pdf -o events.ics --no-import
 
@@ -670,11 +670,6 @@ C<ZAI_API_BASE> (default https://api.z.ai/api/paas/v4).
   pkg install poppler
   # access files from Android shared storage:
   termux-setup-storage
-
-  cd ~
-  curl -O https://example.com/ics-import.pl   # or copy it here
-  chmod +x ics-import.pl
-  ./ics-import.pl init
 
 =head1 EXIT STATUS
 
