@@ -191,6 +191,11 @@ get '/results' => sub ( $c ) {
     $c->stash( request => $req );
     $c->stash( 'request_id' => $r );
     $c->stash( 'thumbnail' => $req->{images}->[0] );
+
+    # if we have an ics already, deparse the events
+    # using Text::JSCalendar
+    # and have them easily selectable/digestable
+
     return $c->render( 'results' );
 };
 
