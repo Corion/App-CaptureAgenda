@@ -24,7 +24,6 @@ use File::Basename qw(basename dirname);
 use File::Path qw(make_path);
 use File::Spec;
 use File::Temp ();
-use JSON::PP ();
 use YAML::Tiny ();
 use ZAI::Runner;
 use Net::CalDAVTalk;
