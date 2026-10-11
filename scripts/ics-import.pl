@@ -432,8 +432,7 @@ EOT
             $res->{status}, $res->{reason}, $detail;
     }
 
-    my $json   = JSON::PP->new->canonical(1);
-    my $data   = $json->decode($res->{content});
+    my $data = $zai->decode_response( $res->{content});
     my $choice = $data->{choices}[0]{message}{content};
     if (ref $choice eq 'ARRAY') {   # some providers return message parts
         $choice = join '', map { $_->{text} // '' } @$choice;

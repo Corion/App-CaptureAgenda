@@ -107,7 +107,6 @@ sub build_prompt_request( $self, %args ) {
 sub decode_response( $self, $res_body ) {
     my $json   = $self->json;
     my $data   = $json->decode($res_body);
-    use Data::Dumper; warn Dumper $data;
     return $data
 }
 
