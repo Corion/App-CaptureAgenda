@@ -104,6 +104,13 @@ sub build_prompt_request( $self, %args ) {
     );
 }
 
+sub decode_response( $self, $res_body ) {
+    my $json   = $self->json;
+    my $data   = $json->decode($res_body);
+    use Data::Dumper; warn Dumper $data;
+    return $data
+}
+
 # Convert a PDF into one image part per page using poppler's pdftoppm.
 sub pdf_to_image_parts( $self, $pdf ) {
     my $pdftoppm = 'pdftoppm';
