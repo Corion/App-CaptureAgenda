@@ -7,6 +7,42 @@ use MIME::Base64 qw(encode_base64);
 use Moo 2;
 use JSON::PP;
 
+=head1 NAME
+
+ZAI::Runner - convenience functions to run prompts
+
+=head1 METHODS
+
+=head2 C<< ZAI::Runner->new >>
+
+  my $zai = ZAI::Runner->new(
+      agent_name => 'frobnicator/1.0',
+      model      => 'glm-5.3',
+      api_key    => 'your-api-key-here',
+  );
+
+=item B<agent_name> - name of the HTTP user agent
+
+=item B<api_base> - URL base to use
+
+Default is C<https://api.z.ai/api/paas/v4>
+
+=item B<api_key> - the API key to use
+
+=item B<json> - JSON object to use for encoding/decoding
+
+=item B<max_tokens> - maximum number of tokens to be generated as output
+
+=item B<prompt> - the prompt to use
+
+=item B<temperature> - temperature to use
+
+Default is 0.1
+
+=item B<ua> - L<HTTP::Tiny> user agent to use
+
+=cut
+
 has 'ua' => (
     is => 'lazy',
     default => \&_build_ua,
@@ -57,6 +93,18 @@ sub _build_ua( $self ) {
     );
 };
 
+=head2 C<< ->build_prompt %args >>
+
+Builds a prompt request as a Perl object
+
+  my $payload = $runner->build_prompt(
+      prompt => ...,
+      files  => [ ... ],
+      model  => 'glm-4.6v',
+  );
+
+=cut
+
 sub build_prompt( $self, %args ) {
     $args{ prompt } //= $self->prompt;
     $args{ files }  //= [];
@@ -100,6 +148,14 @@ sub build_prompt( $self, %args ) {
     return $payload,
 }
 
+=head2 C<< ->build_prompt_request %args >>
+
+Builds L<HTTP::Tiny> request parameters
+
+  my( $url, $opts ) = $runner->build_prompt_request( %args );
+
+=cut
+
 sub build_prompt_request( $self, %args ) {
     my $api_key = delete $args{ api_key } // $self->api_key;
     my $payload = $self->build_prompt( %args );
@@ -121,6 +177,19 @@ sub decode_response( $self, $res_body ) {
     my $data   = $json->decode($res_body);
     return $data
 }
+
+=head2 C<< ->pdf_to_image_parts $filename >>
+
+Splits up a C<.pdf> file into separate PNG images using the external
+C<pdftoppm> program from the Poppler library.
+
+  my @pages = $runner->pdf_to_image_parts( 'foo.pdf' );
+
+The pages are returned as base64-encoded PNG images in hashes like
+
+  { url => 'data:image/png;base64,...' }
+
+=cut
 
 # Convert a PDF into one image part per page using poppler's pdftoppm.
 sub pdf_to_image_parts( $self, $pdf ) {
