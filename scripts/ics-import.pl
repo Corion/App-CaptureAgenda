@@ -13,6 +13,8 @@
 use 5.020;
 use experimental 'signatures';
 
+use lib 'lib';
+
 use Getopt::Long qw(:config bundling no_ignore_case);
 use Pod::Usage;
 
@@ -24,8 +26,8 @@ use File::Spec;
 use File::Temp ();
 use HTTP::Tiny;
 use JSON::PP ();
-use MIME::Base64 qw(encode_base64);
 use YAML::Tiny ();
+use ZAI::Runner;
 use Net::CalDAVTalk;
 
 our $VERSION = '1.00';
@@ -395,53 +397,23 @@ EOT
     $base     =~ s{/+$}{};
     my $model = $OPT{model} || $cfg->{zai_model} || $ZAI_MODEL_DEFAULT;
 
-    # Build multimodal content parts
-    my @parts = ( { type => 'text', text => $OPT{prompt} } );
-    for my $file (@$files) {
-        die "No such file: $file\n" unless -f $file;
-        my $ext = lc( ($file =~ m{\.([^.]+)$})[0] // '' );
-        if ($ext eq 'pdf') {
-            push @parts, pdf_to_image_parts($file);
-        }
-        else {
-            my %mime = (
-                jpg => 'image/jpeg', jpeg => 'image/jpeg',
-                png => 'image/png',  gif  => 'image/gif',
-                webp=> 'image/webp', bmp  => 'image/bmp',
-            );
-            my $m = $mime{$ext}
-                or die "Unsupported file type '.$ext' for '$file' (use jpg/png/gif/webp/bmp or pdf)\n";
-            push @parts, {
-                type      => 'image_url',
-                image_url => { url => 'data:' . $m . ';base64,' . encode_file_b64($file) },
-            };
-        }
-    }
-
-    my $payload = {
+    my $zai = ZAI::Runner->new(
+        api_base    => $base,
+        api_key     => $api_key,
         model       => $model,
-        messages    => [ { role => 'user', content => \@parts } ],
+        prompt      => $EXTRACTION_PROMPT,
         temperature => 0.1,
-        max_tokens  => $ZAI_MAX_TOKENS,
-    };
-
-    my $json = JSON::PP->new->canonical(1);
-    verbose( "Calling z.ai model '$model' with " . scalar(@$files) . " file(s) ..." );
+        max_tokens  => $ZAI_MAX_TOKENS
+    );
 
     my $ua = HTTP::Tiny->new(
         timeout    => 300,            # vision extraction can be slow
         agent      => "ics-import/$VERSION",
     );
-    my $res = $ua->post(
-        "$base/chat/completions",
-        {
-            headers => {
-                'Authorization' => "Bearer $api_key",
-                'Content-Type'  => 'application/json',
-            },
-            content => $json->encode($payload),
-        },
+    my ($url, $opts) = $zai->build_prompt_request(
+        files => $files,
     );
+    my $res = $ua->post( $url, $opts );
 
     unless ($res->{success}) {
         my $detail = eval {
@@ -452,8 +424,9 @@ EOT
             $res->{status}, $res->{reason}, $detail;
     }
 
-    my $data    = $json->decode($res->{content});
-    my $choice  = $data->{choices}[0]{message}{content};
+    my $json   = JSON::PP->new->canonical(1);
+    my $data   = $json->decode($res->{content});
+    my $choice = $data->{choices}[0]{message}{content};
     if (ref $choice eq 'ARRAY') {   # some providers return message parts
         $choice = join '', map { $_->{text} // '' } @$choice;
     }
@@ -485,36 +458,6 @@ EOT
     }
 
     return $ics;
-}
-
-sub encode_file_b64 {
-    my ($file) = @_;
-    open my $fh, '<:raw', $file or die "Cannot read $file: $!\n";
-    local $/;
-    my $data = <$fh>;
-    close $fh;
-    return encode_base64($data, '');
-}
-
-# Convert a PDF into one image part per page using poppler's pdftoppm.
-sub pdf_to_image_parts {
-    my ($pdf) = @_;
-    my $pdftoppm = 'pdftoppm';
-
-    my $tmp = File::Temp->newdir('ics-import-XXXXXX', TMPDIR => 1);
-    my $prefix = File::Spec->catfile($tmp->dirname, 'page');
-    my @cmd = ($pdftoppm, '-png', '-r', '150', '--', $pdf, $prefix);
-    system(@cmd) == 0
-        or die "$pdftoppm failed to convert '$pdf' (status $?)\n";
-
-    my @pages = sort glob("$prefix*.png");
-    die "pdftoppm produced no pages for '$pdf'\n" unless @pages;
-    verbose( sprintf "Converted PDF to %d page image(s)", scalar(@pages) );
-
-    return map { {
-        type      => 'image_url',
-        image_url => { url => 'data:image/png;base64,' . encode_file_b64($_) },
-    } } @pages;
 }
 
 # Pull the raw VCALENDAR block out of a model reply (which may be wrapped in
