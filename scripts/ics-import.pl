@@ -433,7 +433,7 @@ EOT
     }
 
     my $data = $zai->decode_response( $res->{content});
-    my $choice = $data->{choices}[0]{message}{content};
+    my $choice = $data->{choices}->[0]->{message}->{content};
     if (ref $choice eq 'ARRAY') {   # some providers return message parts
         $choice = join '', map { $_->{text} // '' } @$choice;
     }
@@ -458,6 +458,7 @@ EOT
         }
         my $result_name = File::Spec->catfile($OPT{archive}, "$prefix.ics");
         spew( $result_name, $ics );
+        spew( "$result_name.reasoning.txt", $data->{choices}->[0]->{message}->{reasoning_content} );
     }
 
     return $ics;
