@@ -16,6 +16,8 @@ use experimental 'signatures';
 use Getopt::Long qw(:config bundling no_ignore_case);
 use Pod::Usage;
 
+use POSIX 'strftime';
+use File::Copy 'cp';
 use File::Basename qw(basename dirname);
 use File::Path qw(make_path);
 use File::Spec;
@@ -77,6 +79,7 @@ sub main {
         'skip-existing',
         'no-import',
         'out|o=s',
+        'archive=s',
         'prompt|p=s',
         'model=s',
         'verbose|v',
@@ -94,6 +97,11 @@ sub main {
         unless $command =~ /^(?:init|import|photo)$/;
 
     %OPT = %o;
+    $OPT{ archive } //= File::Spec->catdir( $ENV{ XDG_DATA_HOME }, 'ics-import' );
+    if( ! -d $OPT{ archive }) {
+        mkdir $OPT{ archive }
+            or warn "Couldn't create archive dir '$OPT{archive}': $!";
+    }
     $OPT{prompt} = $EXTRACTION_PROMPT . ($o{prompt} ? "\n\nAdditional user instructions:\n$o{prompt}\n" : '');
 
     my $code = __PACKAGE__->can("cmd_$command")->(\@ARGV);
@@ -461,7 +469,21 @@ EOT
         $peek =~ s/\s+\z//;
         die "Could not find an ICS calendar in the z.ai response.\n---\n$peek\n---\n";
     }
-    print "Extracted ICS with ", scalar(() = $ics =~ /BEGIN:VEVENT/gi), " event(s).\n";
+    say "Extracted ICS with ", scalar(() = $ics =~ /BEGIN:VEVENT/gi), " event(s).";
+
+    if( $OPT{archive}) {
+        my $prefix = strftime '%Y%m%d-%H%M%S', gmtime;
+        for my $file ($files->@*) {
+            cp $file => File::Spec->catfile( $OPT{archive}, "$prefix-" . basename( $file ));
+        }
+        my $result_name = File::Spec->catfile($OPT{archive}, "$prefix.ics");
+        if( open my $fh, '>:raw', $result_name ) {
+            print $fh $ics;
+        } else {
+            warn "Couldn't create archive file '$result_name': $!";
+        }
+    }
+
     return $ics;
 }
 
