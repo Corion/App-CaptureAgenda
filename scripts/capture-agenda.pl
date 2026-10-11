@@ -278,7 +278,7 @@ htmx.on("htmx:syntax:error", (elt) => { console.log("htmx.syntax.error",elt)});
 % my $status = $request->{done} ? "done" : "in progress";
     <div id="request-id"><%= $request_id %> - <%= $status %></div>
 % if( $request->{done} ) {
-        <div id="poll-results"><%= $request->{content} %></div>
+        <div id="poll-results"><pre><%= $request->{content} %></pre></div>
 % } else {
         <div id="poll-results" hx-get="<%= url_for( "/results" )->query("request-id" => $request_id ) %>" hx-trigger="every 5s" hx-target="#body"></div>
 % }
