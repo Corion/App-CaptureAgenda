@@ -8,6 +8,7 @@ use Digest::MD5 'md5_hex';
 use File::Spec;
 use File::Basename 'dirname';
 use YAML::Tiny 'LoadFile';
+use Encode 'decode';
 
 our $VERSION = '0.01';
 
@@ -167,8 +168,10 @@ post '/extract' => sub ( $c ) {
         $inflight{ $request_id }->{done} = 1;
         my ($res, $err) = $runner->decode_response("".$tx->res->body);
         warn $err if $err;
-        use Data::Dumper; warn Dumper $res;
-        $inflight{ $request_id }->{content} = $res->{choices}->[0]->{message}->{content};
+        $inflight{ $request_id }->{content} = decode('UTF-8', $res->{choices}->[0]->{message}->{content});
+
+        # XXX save thinking, image and ics
+
     })
     ->catch(sub {
         warn "@_";
