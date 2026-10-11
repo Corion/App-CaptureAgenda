@@ -79,8 +79,6 @@ sub main {
         'out|o=s',
         'prompt|p=s',
         'model=s',
-        'days|i=i',
-        'all|a',
         'verbose|v',
     ) or pod2usage(-exitval => 2, -verbose => 1);
 
