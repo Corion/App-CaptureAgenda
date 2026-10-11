@@ -379,6 +379,14 @@ sub slurp_ics_source( $source ) {
     return $data;
 }
 
+sub spew( $file, $content ) {
+    if( open my $fh, '>:raw', $file ) {
+        print $fh $content;
+    } else {
+        warn "Couldn't create file '$file': $!";
+    }
+}
+
 # ---------------------------------------------------------------------------
 # z.ai: turn images / PDFs into an ICS file
 # ---------------------------------------------------------------------------
@@ -450,11 +458,7 @@ EOT
             cp $file => File::Spec->catfile( $OPT{archive}, "$prefix-" . basename( $file ));
         }
         my $result_name = File::Spec->catfile($OPT{archive}, "$prefix.ics");
-        if( open my $fh, '>:raw', $result_name ) {
-            print $fh $ics;
-        } else {
-            warn "Couldn't create archive file '$result_name': $!";
-        }
+        spew( $result_name, $ics );
     }
 
     return $ics;
