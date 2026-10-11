@@ -154,9 +154,7 @@ calendar: Personal
 #zai_api_base: https://api.z.ai/api/paas/v4
 
 EOT
-    open my $fh, '>', $path or die "Cannot write $path: $!\n";
-    print {$fh} $template;
-    close $fh;
+    spew( $path, $template );
     chmod 0600, $path;
 
     print <<"EOT";
@@ -198,9 +196,7 @@ sub cmd_photo {
     my $cfg = config();
     my $ics = zai_ics_from_files($cfg, $args);
     if ($OPT{out}) {
-        open my $fh, '>:raw', $OPT{out} or die "Cannot write $OPT{out}: $!\n";
-        print {$fh} $ics;
-        close $fh;
+        spew($OPT{out}, $ics);
         say "Wrote extracted ICS to $OPT{out}";
     }
 
