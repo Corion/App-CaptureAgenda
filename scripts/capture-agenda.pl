@@ -162,7 +162,11 @@ post '/extract' => sub ( $c ) {
 
         $inflight{ $request_id }->{done} = 1;
         my ($res, $err) = $runner->decode_response("".$tx->res->body);
-        warn $err if $err;
+        if( $err) {
+            warn $err;
+            # Should display an error to the user, but we bail
+            return
+        };
         $inflight{ $request_id }->{content} = decode('UTF-8', $res->{choices}->[0]->{message}->{content});
 
         # XXX save thinking, image and ics
