@@ -2,6 +2,7 @@
 use 5.020;
 use experimental 'signatures';
 use Mojolicious::Lite;
+use Mojo::File 'path';
 plugin 'RenderFile';
 use ZAI::Runner;
 use Digest::MD5 'md5_hex';
@@ -168,8 +169,13 @@ post '/extract' => sub ( $c ) {
             return
         };
         $inflight{ $request_id }->{content} = decode('UTF-8', $res->{choices}->[0]->{message}->{content});
+        $inflight{ $request_id }->{reqsoning_content} = decode('UTF-8', $res->{choices}->[0]->{message}->{reasoning_content});
 
-        # XXX save thinking, image and ics
+        my $jsc = Text::JSCalendar->new();
+        $inflight{ $request_id }->{events} = [sort { $a->{start} cmp $b->{start} } $jsc->vcalendarToEvents( $inflight{ $request_id }->{content})];
+
+        path($config->{upload_dir})->child("$request_id.ics")->spew( $inflight{ $request_id }->{content}, 'UTF-8');
+        path($config->{upload_dir})->child("$request_id.reasoning.txt")->spew( $inflight{ $request_id }->{reqsoning_content}, 'UTF-8');
 
     })
     ->catch(sub {
