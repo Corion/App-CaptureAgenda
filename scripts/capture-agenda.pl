@@ -10,6 +10,7 @@ use File::Spec;
 use File::Basename 'dirname';
 use YAML::Tiny 'LoadFile';
 use Encode 'decode';
+use Text::JSCalendar;
 
 our $VERSION = '0.01';
 
@@ -188,18 +189,29 @@ post '/extract' => sub ( $c ) {
     return $c->redirect_to($c->url_for("/results")->query( "request-id" => $request_id ));
 };
 
+get '/calendar' => sub( $c ) {
+    my $r = $c->param('request-id');
+    my $type = $c->param('type');
+
+    my $req = $inflight{ $r };
+
+    $c->stash( request => $req );
+    $c->stash( 'request_id' => $r );
+    $c->stash( 'type' => $type );
+
+    return $c->render( 'calendar-frag' );
+};
+
 get '/results' => sub ( $c ) {
     my $r = $c->param('request-id');
+    my $type = $c->param('type');
 
     my $req = $inflight{ $r };
 
     $c->stash( request => $req );
     $c->stash( 'request_id' => $r );
     $c->stash( 'thumbnail' => $req->{images}->[0] );
-
-    # if we have an ics already, deparse the events
-    # using Text::JSCalendar
-    # and have them easily selectable/digestable
+    $c->stash( 'result_type' => $type );
 
     return $c->render( 'results' );
 };
@@ -268,6 +280,22 @@ htmx.on("htmx:syntax:error", (elt) => { console.log("htmx.syntax.error",elt)});
 </body>
 </html>
 
+@@ calendar-frag.html.ep
+% if( $type eq 'raw' ) {
+<pre><%= $request->{content} %></pre>
+% } elsif( $type eq 'list' ) {
+<table>
+%     for my $ev ($request->{events}->@*) {
+<tr>
+    <td><form method="POST" action="<%= url_for( "/import" )->query( "request-id" => $request_id, uid => $ev->{uid} ) %>" ><button type="submit">Import</button></form></td>
+    <td><%= $ev->{start} %></td>
+    <td><%= $ev->{title} %></td>
+    <td><%= $ev->{description} %></td>
+</tr>
+%     }
+</table>
+% }
+
 @@ results.html.ep
 <!DOCTYPE html>
 <html>
@@ -286,11 +314,22 @@ htmx.on("htmx:syntax:error", (elt) => { console.log("htmx.syntax.error",elt)});
 <div class="container-fluid" id="container">
     <main class="col">
 % my $status = $request->{done} ? "done" : "in progress";
-    <div id="request-id"><%= $request_id %> - <%= $status %></div>
+% $result_type //= 'list';
+<div id="request-id"><%= $request_id %> - <%= $status %></div>
 % if( $request->{done} ) {
-        <div id="poll-results"><pre><%= $request->{content} %></pre></div>
+    <div id="poll-results">
+        <ul>
+            <li><a hx-get="<%= url_for("/calendar")->query("request-id"=>$request_id, type => 'list') %>" hx-target="next div" href="<%= url_with->query( type => "list" )%>">list</a></li>
+            <li><a hx-get="<%= url_for("/calendar")->query("request-id"=>$request_id, type => 'raw' ) %>" hx-target="next div" href="<%= url_with->query( type => "raw" )%>">raw</a></li>
+            <li><a href="<%= url_for( "/ics/$request_id.ics" )%>">download .ics</a></li>
+            <li><form method="POST" action="<%= url_for("/import")->query("request-id"=>$request_id, uid=>'all')%>"><button type="submit" href="<%= url_for( "/calendar" )%>">import all</button></form></li>
+        </ul>
+        <div id="calendar-content">
+%=include('calendar-frag', request_id => $request_id, type => $result_type, request => $request );
+        </div>
+    </div>
 % } else {
-        <div id="poll-results" hx-get="<%= url_for( "/results" )->query("request-id" => $request_id ) %>" hx-trigger="every 5s" hx-target="#body"></div>
+    <div id="poll-results" hx-get="<%= url_for( "/results" )->query("request-id" => $request_id ) %>" hx-trigger="every 5s" hx-target="#body"></div>
 % }
 % use File::Basename;
         <img src="<%= url_for( "/thumbnail/" . basename( $thumbnail )) %>" />
