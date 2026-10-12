@@ -154,16 +154,11 @@ post '/extract' => sub ( $c ) {
         id     => $request_id,
         images => \@images,
     };
-    #use Data::Dumper; warn $url; warn Dumper $opts->{headers};
-    #warn $opts->{content};
 
     $ua->post_p( $url => $opts->{headers} => $opts->{content})
     ->then(sub($tx) {
         $inflight{ $request_id }
             or warn "Inconsistent transaction ids ?! '$tx' is unknown";
-        warn "Results for $request_id";
-        #use Data::Dumper; warn $tx->res->code;
-        #use Data::Dumper; warn $tx->res->body;
 
         $inflight{ $request_id }->{done} = 1;
         my ($res, $err) = $runner->decode_response("".$tx->res->body);
