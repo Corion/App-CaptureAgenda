@@ -224,6 +224,10 @@ get '/thumbnail/<*image>.0.<:ext>' => [ ext => ['bmp','gif','jpg','jpeg','pdf','
     );
 };
 
+post '/import' => sub( $c ) {
+    # import into $calendar
+};
+
 app->start;
 
 __END__
@@ -234,7 +238,7 @@ __DATA__
 <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
 <link rel="manifest" href="<%= url_for('/manifest.json') %>">
 <meta name="theme-color" content="#fbbf24">
-<link rel="stylesheet" href="<%= url_for( "/bootstrap.5.3.3.min.css" ) %>" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+<link rel="stylesheet" href="<%= url_for( "/vendor/bootstrap.5.3.3.min.css" ) %>" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
 <script src="<%= url_for( "/vendor/htmax.4.0.0.min.js") %>"></script>
 <script src="<%= url_for( "/vendor/bootstrap.5.3.3.min.js") %>"></script>
 <script>
