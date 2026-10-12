@@ -122,6 +122,17 @@ post '/extract' => sub ( $c ) {
     my $idx = 0;
     for my $img (@i) {
         $request_id //= md5_hex($img->slurp());
+
+        my $ics = File::Spec->catfile( $config->{upload_dir}, "$request_id.ics");
+        if( -f $ics ) {
+            $inflight{ $request_id }->{done} = 1;
+            $inflight{ $request_id }->{images} = [glob "$config->{upload_dir}/$request_id.*.*"];
+            $inflight{ $request_id }->{content} = path($ics)->slurp();
+            my $jsc = Text::JSCalendar->new();
+            $inflight{ $request_id }->{events} = [sort { $a->{start} cmp $b->{start} } $jsc->vcalendarToEvents( $inflight{ $request_id }->{content})];
+            return $c->redirect_to($c->url_for("/results")->query( "request-id" => $request_id ));
+        }
+
         my $ct = $img->headers->content_type;
 
         my %mime = (
