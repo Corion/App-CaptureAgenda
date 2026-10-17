@@ -111,6 +111,10 @@ sub build_prompt( $self, %args ) {
     $args{ temperature } //= 0.1;
     $args{ model } //= $self->model;
 
+    if( my $p = delete $args{ additional_instructions }) {
+        $args{ prompt } .= "\n\nAdditional user instructions:\n$p\n";
+    };
+
     my @parts = ( { type => 'text', text => $args{prompt} } );
 
     for my $file ($args{files}->@*) {

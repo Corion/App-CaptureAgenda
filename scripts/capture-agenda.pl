@@ -112,6 +112,7 @@ get '/index.html' => sub( $c ) {
 my %inflight;
 post '/extract' => sub ( $c ) {
     my @i = $c->every_param('images')->@*;
+    my $prompt = $c->param('prompt');
 
     # save request id
     my $request_id;
@@ -155,6 +156,7 @@ post '/extract' => sub ( $c ) {
     # feed to $runner
     my( $url, $opts) = $runner->build_prompt_request(
         files => \@images,
+        additional_instructions => $prompt,
     );
 
     # Kick off request as future
@@ -287,8 +289,9 @@ htmx.on("htmx:syntax:error", (elt) => { console.log("htmx.syntax.error",elt)});
                    name="images" id="capture-image-image"
                    style="display: none"
                    capture="environment"
-            />
-            <button type="submit" class="nojs">Analyze</button>
+            /><br />
+            <button type="submit" class="nojs">Analyze</button><br />
+            <textarea name="prompt" placeholder="Additional instructions here"></textarea>
         </form>
     </main>
     </div>
@@ -299,16 +302,21 @@ htmx.on("htmx:syntax:error", (elt) => { console.log("htmx.syntax.error",elt)});
 % if( $type eq 'raw' ) {
 <pre><%= $request->{content} %></pre>
 % } elsif( $type eq 'list' ) {
+    <div>Select all</div>
+<form method="POST" action="<%= url_for( "/import" ) %>">
+<input type="hidden" name="request-id" value="<%= $request_id %>" />
 <table>
+%     my $idx = 0;
 %     for my $ev ($request->{events}->@*) {
 <tr>
-    <td><form method="POST" action="<%= url_for( "/import" )->query( "request-id" => $request_id, uid => $ev->{uid} ) %>" ><button type="submit">Import</button></form></td>
-    <td><%= $ev->{start} %></td>
+    <td><input type="checkbox" id="import-<%= $idx %>" name="import" value="<%= $ev->{uid} %>"</td>
+    <td><label for="import-<%= $idx++ %>"><%= $ev->{start} %></label></td>
     <td><%= $ev->{title} %></td>
     <td><%= $ev->{description} %></td>
 </tr>
 %     }
 </table>
+</form>
 % }
 
 @@ results.html.ep
