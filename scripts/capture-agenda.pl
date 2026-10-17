@@ -179,7 +179,7 @@ post '/extract' => sub ( $c ) {
         my ($res, $err) = $runner->decode_response("".$tx->res->body);
         if( $err) {
             warn $err;
-            # Should display an error to the user, but we bail
+            # XXX Should display an error to the user, but we bail
             return
         };
         $inflight{ $request_id }->{content} = decode('UTF-8', $res->{choices}->[0]->{message}->{content});
@@ -188,6 +188,10 @@ post '/extract' => sub ( $c ) {
         my $jsc = Text::JSCalendar->new();
         $inflight{ $request_id }->{events} = [sort { $a->{start} cmp $b->{start} } $jsc->vcalendarToEvents( $inflight{ $request_id }->{content})];
 
+        # We should check if the events (as identified by their uid already
+        # exist so the text can change from "import" to "reimport" (or even hide?)
+
+# XXX also save the prompt and additional instructions here
         path($config->{upload_dir})->child("$request_id.ics")->spew( $inflight{ $request_id }->{content}, 'UTF-8');
         path($config->{upload_dir})->child("$request_id.reasoning.txt")->spew( $inflight{ $request_id }->{reqsoning_content}, 'UTF-8');
 
