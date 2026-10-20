@@ -7,10 +7,12 @@ plugin 'RenderFile';
 use ZAI::Runner;
 use Digest::MD5 'md5_hex';
 use File::Spec;
-use File::Basename 'dirname';
+use File::Basename 'dirname', 'basename';
 use YAML::Tiny 'LoadFile';
 use Encode 'decode';
 use Text::JSCalendar;
+use IO::Socket::SSL 'SSL_VERIFY_NONE';
+use Net::CalDAVTalk;
 use POSIX 'strftime';
 
 our $VERSION = '0.01';
@@ -79,6 +81,35 @@ my $runner = ZAI::Runner->new(
     max_tokens  => 8192,
 );
 
+sub get_calendar( $cfg, %OPT ) {
+    my $url  = $cfg->{url}
+        or die "No CalDAV URL configured in 'url'\n";
+    my $user = $cfg->{user}
+        or die "No CalDAV user configured in 'user'\n";
+    my $pass = $OPT{password} // $cfg->{password};
+    die "No CalDAV password given\n"
+        unless defined $pass;
+
+    my $caldav = Net::CalDAVTalk->new(
+        url      => $url,
+        user     => $user,
+        password => $pass,
+        SSL_options => {
+            SSL_verify_mode => SSL_VERIFY_NONE,
+        },
+    );
+    #$caldav->logger(sub {
+    #    my ($level, @rest) = @_;
+    #    return unless $OPT{verbose};
+    #    warn "CALDAV $level: $_\n" for @rest;
+    #});
+
+    my $cal = $caldav->GetCalendar( $cfg->{calendar} )
+        or die "No calendar named '$cfg->{calendar}' found\n";;
+
+    return ($caldav,$cal);
+}
+
 get '/' => sub( $c ) {
     $c->redirect_to('index.html')
 };
@@ -86,7 +117,6 @@ get '/' => sub( $c ) {
 get '/index.html' => sub( $c ) {
     return $c->render('index')
 };
-
 
 my %inflight;
 post '/extract' => sub ( $c ) {
@@ -246,7 +276,51 @@ get '/thumbnail/<*image>.0.<:ext>' => [ ext => ['bmp','gif','jpg','jpeg','pdf','
 };
 
 post '/import' => sub( $c ) {
+    my $request_id = $c->param('request-id');
     # import into $calendar
+    my ($caldav,$cal) = get_calendar( $config );
+    my $skip_existing = 0;
+
+    my $ics_name = File::Spec->catfile( $config->{upload_dir}, "$request_id.ics");
+    my $ics = path($ics_name)->slurp('UTF-8');
+    my @events = $caldav->vcalendarToEvents($ics);
+
+    my %existing;
+    if ($skip_existing) {
+        my $links = $caldav->GetEventLinks($cal->{id});
+        %existing = map { $_ => 1 } map { basename($_) } keys %$links;
+    }
+
+    my @import;
+    # fish out the events we actually want
+    for my $id ($c->every_param('import')->@*) {
+        push @import, grep { $id eq $_->{uid} } @events;
+    };
+
+    my $created = 0;
+    for my $ev (@import) {
+        my $uid  = $ev->{uid};
+
+        # UID filename component (mirrors Net::CalDAVTalk::NewEvent)
+        (my $uidfile = $uid) =~ tr/a-zA-Z0-9\@._-//cd;
+
+        if ($existing{"$uidfile.ics"}) {
+            #warn "  [$i] skip existing $line\n";
+            next;
+        }
+        my $href = eval { $caldav->NewEvent($cal->{id}, $ev) };
+        if (my $err = $@) {
+            $err =~ s/ at \S+ line \d+.*//s;
+            warn "Event FAILED: $err";
+            # Should return that as a toast
+            next;
+        }
+        $created++;
+        # Should collect/count these and send that as a toast
+    }
+
+    # maybe somehow mark some events as imported here?!
+    return $c->redirect_to($c->url_for("/results")->query( "request-id" => $request_id ));
 };
 
 app->start;
@@ -324,6 +398,7 @@ htmx.on("htmx:syntax:error", (elt) => { console.log("htmx.syntax.error",elt)});
 </tr>
 %     }
 </table>
+<button type="submit">Import selected</button>
 </form>
 % }
 
