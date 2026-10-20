@@ -11,29 +11,9 @@ use File::Basename 'dirname';
 use YAML::Tiny 'LoadFile';
 use Encode 'decode';
 use Text::JSCalendar;
+use POSIX 'strftime';
 
 our $VERSION = '0.01';
-
-my $EXTRACTION_PROMPT = <<'EOP';
-You are an assistant that turns photographs, scans and documents into
-calendar data. Examine the attached image(s) carefully and find EVERY
-calendar event, appointment, reservation, deadline or schedule entry,
-including multi-day and recurring ones.
-
-Return ONLY a valid iCalendar (ICS) file body:
-BEGIN:VCALENDAR ... END:VCALENDAR with VERSION:2.0 and a PRODID line,
-containing exactly one VEVENT per event you found.
-
-Every VEVENT MUST have: UID (invent a stable unique one), DTSTAMP, SUMMARY,
-DTSTART and DTEND (or DURATION). Use TZID-prefixed local times (e.g.
-DTSTART;TZID=Europe/Berlin:20261007T190000) when the source shows local
-times, and VALUE=DATE for all-day events. Include LOCATION and DESCRIPTION
-whenever the information is available; put anything uncertain in the
-DESCRIPTION.
-
-Do NOT add any commentary or explanation, do NOT use markdown code fences,
-output only the raw ICS text.
-EOP
 
 sub config_paths {
     my @candidates;
@@ -95,7 +75,6 @@ my $runner = ZAI::Runner->new(
     api_key     => $config->{zai_api_key},
     agent_name  => "ics-import/$VERSION",
     model       => $config->{zai_model},
-    prompt      => $EXTRACTION_PROMPT,
     temperature => 0.1,
     max_tokens  => 8192,
 );
@@ -153,8 +132,33 @@ post '/extract' => sub ( $c ) {
         }
     }
 
-    # feed to $runner
+    my $today = strftime '%Y-%m-%d', localtime();
+    my $EXTRACTION_PROMPT = <<"EOP";
+You are an assistant that turns photographs, scans and documents into
+calendar data. Examine the attached image(s) carefully and find EVERY
+calendar event, appointment, reservation, deadline or schedule entry,
+including multi-day and recurring ones.
+
+Return ONLY a valid iCalendar (ICS) file body:
+BEGIN:VCALENDAR ... END:VCALENDAR with VERSION:2.0 and a PRODID line,
+containing exactly one VEVENT per event you found.
+
+Every VEVENT MUST have: UID (invent a stable unique one), DTSTAMP, SUMMARY,
+DTSTART and DTEND (or DURATION). Use TZID-prefixed local times (e.g.
+DTSTART;TZID=Europe/Berlin:20261007T190000) when the source shows local
+times, and VALUE=DATE for all-day events. Include LOCATION and DESCRIPTION
+whenever the information is available; put anything uncertain in the
+DESCRIPTION.
+
+If the year is missing, assume a date in the future. The current date is $today.
+
+Do NOT add any commentary or explanation, do NOT use markdown code fences,
+output only the raw ICS text.
+EOP
+
+
     my( $url, $opts) = $runner->build_prompt_request(
+        prompt => $EXTRACTION_PROMPT,
         files => \@images,
         additional_instructions => $prompt,
     );
