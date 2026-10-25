@@ -181,7 +181,7 @@ sub build_prompt_request( $self, %args ) {
 sub decode_response( $self, $res_body ) {
     my $json   = $self->json;
     my $data   = $json->decode($res_body);
-    return $data
+    return ($data, undef)
 }
 
 =head2 C<< ->pdf_to_image_parts $filename >>
