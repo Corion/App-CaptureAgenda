@@ -172,33 +172,59 @@ post '/extract' => sub ( $c ) {
 
     $ua->post_p( $url => $opts->{headers} => $opts->{content})
     ->then(sub($tx) {
-        $inflight{ $request_id }
-            or warn "Inconsistent transaction ids ?! '$tx' is unknown";
+        my $r = $inflight{ $request_id };
+        if( !$r ) {
+            warn "Inconsistent transaction ids ?! '$tx' is unknown";
+            return;
+        }
 
-        $inflight{ $request_id }->{done} = 1;
-        my ($res, $err) = $runner->decode_response("".$tx->res->body);
+        my $res = $tx->result;
+        if( !$res->is_success ) {
+            my ($detail) = $runner->decode_response("".$res->body);
+            $r->{error} = join ' ', 'z.ai request failed:',
+                $res->code // '', $res->message // '',
+                eval { $detail->{error}{message} // $detail->{message} } // '';
+            warn "$r->{error}";
+            $r->{done} = 1;
+            return;
+        };
+
+        my ($data, $err) = $runner->decode_response("".$res->body);
         if( $err) {
             warn $err;
-            # XXX Should display an error to the user, but we bail
+            $r->{error} = $err;
+            $r->{done} = 1;
             return
         };
-        # Runner's utf8-mode JSON hands us character strings already
-        $inflight{ $request_id }->{content} = $res->{choices}->[0]->{message}->{content};
-        $inflight{ $request_id }->{reasoning_content} = $res->{choices}->[0]->{message}->{reasoning_content} // '';
+
+        my $content = $data->{choices}->[0]->{message}->{content};
+        if( !defined $content || !length $content ) {
+            $r->{error} = "z.ai returned an empty response";
+            $r->{done} = 1;
+            return;
+        }
+        $r->{content} = $content;
+        $r->{reasoning_content} = $data->{choices}->[0]->{message}->{reasoning_content} // '';
 
         my $jsc = Text::JSCalendar->new();
-        $inflight{ $request_id }->{events} = [sort { $a->{start} cmp $b->{start} } $jsc->vcalendarToEvents( $inflight{ $request_id }->{content})];
+        $r->{events} = [sort { $a->{start} cmp $b->{start} } $jsc->vcalendarToEvents( $r->{content})];
 
         # We should check if the events (as identified by their uid already
         # exist so the text can change from "import" to "reimport" (or even hide?)
 
 # XXX also save the prompt and additional instructions here
-        path($config->{upload_dir})->child("$request_id.ics")->spew( $inflight{ $request_id }->{content}, 'UTF-8');
-        path($config->{upload_dir})->child("$request_id.reasoning.txt")->spew( $inflight{ $request_id }->{reasoning_content}, 'UTF-8');
+        path($config->{upload_dir})->child("$request_id.ics")->spew( $r->{content}, 'UTF-8');
+        path($config->{upload_dir})->child("$request_id.reasoning.txt")->spew( $r->{reasoning_content}, 'UTF-8');
 
+        $r->{done} = 1;
     })
     ->catch(sub {
         warn "@_";
+        my $r = $inflight{ $request_id };
+        if( $r && !$r->{done} ) {
+            $r->{done}  = 1;
+            $r->{error} = "@_";
+        }
     });
     $inflight{ $request_id } = $r;
     warn "Launched request for $request_id";
@@ -397,10 +423,12 @@ htmx.on("htmx:syntax:error", (elt) => { console.log("htmx.syntax.error",elt)});
 >
 <div class="container-fluid" id="container">
     <main class="col">
-% my $status = $request->{done} ? "done" : "in progress";
+% my $status = $request->{done} ? ($request->{error} ? "failed" : "done") : "in progress";
 % $result_type //= 'list';
 <div id="request-id"><%= $request_id %> - <%= $status %></div>
-% if( $request->{done} ) {
+% if( $request->{error} ) {
+    <div id="poll-results" class="alert alert-danger">Extraction failed: <%= $request->{error} %></div>
+% } elsif( $request->{done} ) {
     <div id="poll-results">
         <ul>
             <li><a hx-get="<%= url_for("/calendar")->query("request-id"=>$request_id, type => 'list') %>" hx-target="next div" href="<%= url_with->query( type => "list" )%>">list</a></li>
