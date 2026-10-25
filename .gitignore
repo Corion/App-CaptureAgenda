@@ -10,7 +10,7 @@ App-CaptureAgenda-*/
 .releaserc
 cover_db
 MYMETA.*
-*.pl
 .prove
 .patch
 uploads/
+meta.txt
