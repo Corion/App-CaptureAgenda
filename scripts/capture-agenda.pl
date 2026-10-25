@@ -91,13 +91,13 @@ my $config = config();
 $config->{upload_dir} //= File::Spec->catdir( dirname($0),  '../uploads' );
 
 my $runner = ZAI::Runner->new(
-    api_base    => $config->{zai_api_base},
-    api_key     => $config->{zai_api_key},
-    agent_name  => "ics-import/$VERSION",
-    model       => maybe $config->{zai_model},
-    prompt      => $EXTRACTION_PROMPT,
-    temperature => 0.1,
-    max_tokens  => 8192,
+    maybe api_base    => $config->{zai_api_base},
+          api_key     => $config->{zai_api_key},
+          agent_name  => "ics-import/$VERSION",
+    maybe model       => $config->{zai_model},
+          prompt      => $EXTRACTION_PROMPT,
+          temperature => 0.1,
+          max_tokens  => 8192,
 );
 
 get '/' => sub( $c ) {
