@@ -2,6 +2,8 @@ package ZAI::Runner 0.01;
 use 5.020;
 use experimental 'signatures';
 
+use File::Spec;
+use File::Temp;
 use Carp 'croak';
 use MIME::Base64 qw(encode_base64);
 use Moo 2;
