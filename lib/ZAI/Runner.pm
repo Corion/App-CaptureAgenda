@@ -110,7 +110,7 @@ Builds a prompt request as a Perl object
 sub build_prompt( $self, %args ) {
     $args{ prompt } //= $self->prompt;
     $args{ files }  //= [];
-    $args{ temperature } //= 0.1;
+    $args{ temperature } //= $self->temperature;
     $args{ model } //= $self->model;
 
     if( my $p = delete $args{ additional_instructions }) {
@@ -147,7 +147,7 @@ sub build_prompt( $self, %args ) {
     my $payload = {
         model       => ($args{ model } // $self->model),
         messages    => [ { role => 'user', content => \@parts } ],
-        temperature => 0.1,
+        temperature => $temperature,
         max_tokens  => $self->max_tokens,
     };
 
