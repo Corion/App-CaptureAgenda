@@ -313,7 +313,7 @@ htmx.on("htmx:syntax:error", (elt) => { console.log("htmx.syntax.error",elt)});
 %     my $idx = 0;
 %     for my $ev ($request->{events}->@*) {
 <tr>
-    <td><input type="checkbox" id="import-<%= $idx %>" name="import" value="<%= $ev->{uid} %>"</td>
+    <td><input type="checkbox" id="import-<%= $idx %>" name="import" value="<%= $ev->{uid} %>" /></td>
     <td><label for="import-<%= $idx++ %>"><%= $ev->{start} %></label></td>
     <td><%= $ev->{title} %></td>
     <td><%= $ev->{description} %></td>
