@@ -144,4 +144,17 @@ unlike( $body4, qr/Extraction failed/, 'no error notice on success' );
 ok( -f $uploads->child("$id4.ics"), 'ics written to disk' );
 like( $uploads->child("$id4.ics")->slurp, qr/Testkonzert/, 'ics has the event' );
 
+subtest 'htmx attributes' => sub {
+    # list/raw fragments must swap into the calendar div; "next div"
+    # resolves to the anchor's next *sibling*, of which there is none
+    # inside the <li>
+    like(   $body4, qr{hx-target="#calendar-content"}, 'list/raw links target #calendar-content' );
+    unlike( $body4, qr{hx-target="next div"},           'no sibling-relative target left' );
+
+    # the upload form posts via htmx and gets a redirect to the results
+    # page; the whole body must be the swap target, not the form itself
+    $t->get_ok('/index.html')->status_is(200);
+    like( $t->tx->res->body, qr{hx-target="#body"}, 'upload form targets #body' );
+};
+
 done_testing();

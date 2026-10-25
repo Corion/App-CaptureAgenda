@@ -343,8 +343,7 @@ __DATA__
 <script>
 //htmx.config.logAll = true;
 
-// Hack to show us what element caused the syntax error
-// We still don't know what attribute, but that's close enough
+// Log htmx errors so silent failures are at least visible in the console
 htmx.on("htmx:error", (elt) => { console.log("htmx:error",elt)});
 </script>
 
@@ -365,6 +364,7 @@ htmx.on("htmx:error", (elt) => { console.log("htmx:error",elt)});
     <main class="col">
         <form action="<%= url_for( "/extract" ) %>" method="POST"
             hx-post="<%= url_for( "/extract" ) %>"
+            hx-target="#body"
             enctype='multipart/form-data'
             hx-trigger="change"
             id="form-upload-image"
@@ -429,8 +429,8 @@ htmx.on("htmx:error", (elt) => { console.log("htmx:error",elt)});
 % } elsif( $request->{done} ) {
     <div id="poll-results">
         <ul>
-            <li><a hx-get="<%= url_for("/calendar")->query("request-id"=>$request_id, type => 'list') %>" hx-target="next div" href="<%= url_with->query( type => "list" )%>">list</a></li>
-            <li><a hx-get="<%= url_for("/calendar")->query("request-id"=>$request_id, type => 'raw' ) %>" hx-target="next div" href="<%= url_with->query( type => "raw" )%>">raw</a></li>
+            <li><a hx-get="<%= url_for("/calendar")->query("request-id"=>$request_id, type => 'list') %>" hx-target="#calendar-content" href="<%= url_with->query( type => "list" )%>">list</a></li>
+            <li><a hx-get="<%= url_for("/calendar")->query("request-id"=>$request_id, type => 'raw' ) %>" hx-target="#calendar-content" href="<%= url_with->query( type => "raw" )%>">raw</a></li>
             <li><a href="<%= url_for( "/ics/$request_id.ics" )%>">download .ics</a></li>
             <li><form method="POST" action="<%= url_for("/import")->query("request-id"=>$request_id, uid=>'all')%>"><button type="submit" href="<%= url_for( "/calendar" )%>">import all</button></form></li>
         </ul>
