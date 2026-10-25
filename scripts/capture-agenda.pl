@@ -367,6 +367,7 @@ htmx.on("htmx:syntax:error", (elt) => { console.log("htmx.syntax.error",elt)});
 <div class="container-fluid" id="container">
     <main class="col">
         <form action="<%= url_for( "/extract" ) %>" method="POST"
+            hx-post="<%= url_for( "/extract" ) %>"
             enctype='multipart/form-data'
             hx-trigger="change"
             id="form-upload-image"
