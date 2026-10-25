@@ -7,9 +7,10 @@ plugin 'RenderFile';
 use ZAI::Runner;
 use Digest::MD5 'md5_hex';
 use File::Spec;
-use File::Basename 'dirname';
+use File::Basename 'dirname', 'basename';
 use YAML::Tiny 'LoadFile';
 use Text::JSCalendar;
+use Net::CalDAVTalk;
 use PerlX::Maybe;
 
 our $VERSION = '0.01';
@@ -108,6 +109,29 @@ get '/index.html' => sub( $c ) {
     return $c->render('index')
 };
 
+sub get_calendar( $config ) {
+    my $url  = $config->{url}  or die "No CalDAV URL configured ('url' in the YAML config)\n";
+    my $user = $config->{user} or die "No CalDAV user configured ('user' in the YAML config)\n";
+    my $pass = $config->{password};
+    die "No CalDAV password given. Set 'password' in the YAML config.\n"
+        unless $pass;
+
+    my $caldav = Net::CalDAVTalk->new(
+        url      => $url,
+        user     => $user,
+        password => $pass,
+        SSL_options => { SSL_verify_mode => 0 },
+    );
+    my $cal = $caldav->GetCalendar($config->{calendar});
+    return ($caldav,$cal);
+}
+
+sub existing_calendar_events( $caldav, $cal ) {
+    my $links = $caldav->GetEventLinks($cal->{id});
+    my %existing = map { $_ => 1 } map { m!([^/]+)\z! } keys $links->%*;
+
+    return %existing;
+}
 
 my %inflight;
 post '/extract' => sub ( $c ) {
@@ -243,6 +267,10 @@ get '/calendar' => sub( $c ) {
     $c->stash( 'request_id' => $r );
     $c->stash( 'type' => $type );
 
+    my ($caldav,$cal) = get_calendar( $config );
+    my %existing = existing_calendar_events( $caldav, $cal );
+    $c->stash( existing => \%existing );
+
     return $c->render( 'calendar-frag' );
 };
 
@@ -256,6 +284,10 @@ get '/results' => sub ( $c ) {
     $c->stash( 'request_id' => $r );
     $c->stash( 'thumbnail' => $req->{images}->[0] );
     $c->stash( 'result_type' => $type );
+
+    my ($caldav,$cal) = get_calendar($config);
+    my %existing = existing_calendar_events( $caldav, $cal );
+    $c->stash( existing => \%existing );
 
     return $c->render( 'results' );
 };
@@ -292,8 +324,7 @@ post '/import' => sub( $c ) {
 
     my %existing;
     if ($skip_existing) {
-        my $links = $caldav->GetEventLinks($cal->{id});
-        %existing = map { $_ => 1 } map { basename($_) } keys %$links;
+        %existing = existing_calendar_events( $caldav, $cal );
     }
 
     my @import;
@@ -387,17 +418,32 @@ htmx.on("htmx:error", (elt) => { console.log("htmx:error",elt)});
 % if( $type eq 'raw' ) {
 <pre><%= $request->{content} %></pre>
 % } elsif( $type eq 'list' ) {
-    <div>Select all</div>
 <form method="POST" action="<%= url_for( "/import" ) %>">
+<ul class="list-group list-group-horizontal-md">
+    <li><button type="submit">Import selected</button></li>
+</ul>
 <input type="hidden" name="request-id" value="<%= $request_id %>" />
 <table>
+<thead>
+<tr>
+    <th><input type="checkbox" onchange="((el) => {let ch=document.getElementsByName('import'); for (let b of ch) {b.checked=el.checked}})(this)"></a></th>
+    <th>Date/Time</th>
+    <th>Title</th>
+    <th>Description</th>
+    <th>Status</th>
+</tr>
+</thead>
 %     my $idx = 0;
 %     for my $ev ($request->{events}->@*) {
+%        my $uid  = $ev->{uid};
+%        # UID filename component (mirrors Net::CalDAVTalk::NewEvent)
+%        (my $uidfile = $uid) =~ tr/a-zA-Z0-9\@._-//cd;
 <tr>
     <td><input type="checkbox" id="import-<%= $idx %>" name="import" value="<%= $ev->{uid} %>" /></td>
     <td><label for="import-<%= $idx++ %>"><%= $ev->{start} %></label></td>
     <td><%= $ev->{title} %></td>
     <td><%= $ev->{description} %></td>
+    <td><%= $existing->{ "$uidfile.ics" } ? 'imported' : '' =%></td>
 </tr>
 %     }
 </table>
@@ -428,14 +474,15 @@ htmx.on("htmx:error", (elt) => { console.log("htmx:error",elt)});
     <div id="poll-results" class="alert alert-danger">Extraction failed: <%= $request->{error} %></div>
 % } elsif( $request->{done} ) {
     <div id="poll-results">
-        <ul>
-            <li><a hx-get="<%= url_for("/calendar")->query("request-id"=>$request_id, type => 'list') %>" hx-target="#calendar-content" href="<%= url_with->query( type => "list" )%>">list</a></li>
-            <li><a hx-get="<%= url_for("/calendar")->query("request-id"=>$request_id, type => 'raw' ) %>" hx-target="#calendar-content" href="<%= url_with->query( type => "raw" )%>">raw</a></li>
-            <li><a href="<%= url_for( "/ics/$request_id.ics" )%>">download .ics</a></li>
-            <li><form method="POST" action="<%= url_for("/import")->query("request-id"=>$request_id, uid=>'all')%>"><button type="submit" href="<%= url_for( "/calendar" )%>">import all</button></form></li>
+        <nav class="navbar navbar-expand-lg">
+        <ul class="navbar-nav mr-auto">
+            <li class="nav-item"><a class="nav-link" hx-get="<%= url_for("/calendar")->query("request-id"=>$request_id, type => 'list') %>" hx-target="#calendar-content" href="<%= url_with->query( type => "list" )%>">list</a></li>
+            <li class="nav-item"><a class="nav-link" hx-get="<%= url_for("/calendar")->query("request-id"=>$request_id, type => 'raw' ) %>" hx-target="#calendar-content" href="<%= url_with->query( type => "raw" )%>">raw</a></li>
+            <li class="nav-item"><a class="nav-link" href="<%= url_for( "/ics/$request_id.ics" )%>">download .ics</a></li>
         </ul>
+        </nav>
         <div id="calendar-content">
-%=include('calendar-frag', request_id => $request_id, type => $result_type, request => $request );
+%=include('calendar-frag', request_id => $request_id, type => $result_type, request => $request, existing => $existing );
         </div>
     </div>
 % } else {
