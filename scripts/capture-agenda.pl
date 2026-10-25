@@ -244,6 +244,50 @@ get '/thumbnail/<*image>.0.<:ext>' => [ ext => ['bmp','gif','jpg','jpeg','pdf','
 
 post '/import' => sub( $c ) {
     # import into $calendar
+    my $request_id = $c->param('request-id');
+    my ($caldav,$cal) = get_calendar( $config );
+    my $skip_existing = 0;
+
+    my $ics_name = File::Spec->catfile( $config->{upload_dir}, "$request_id.ics");
+    my $ics = path($ics_name)->slurp('UTF-8');
+    my @events = $caldav->vcalendarToEvents($ics);
+
+    my %existing;
+    if ($skip_existing) {
+        my $links = $caldav->GetEventLinks($cal->{id});
+        %existing = map { $_ => 1 } map { basename($_) } keys %$links;
+    }
+
+    my @import;
+    # fish out the events we actually want
+    for my $id ($c->every_param('import')->@*) {
+        push @import, grep { $id eq $_->{uid} } @events;
+    };
+
+    my $created = 0;
+    for my $ev (@import) {
+        my $uid  = $ev->{uid};
+
+        # UID filename component (mirrors Net::CalDAVTalk::NewEvent)
+        (my $uidfile = $uid) =~ tr/a-zA-Z0-9\@._-//cd;
+
+        if ($existing{"$uidfile.ics"}) {
+            #warn "  [$i] skip existing $line\n";
+            next;
+        }
+        my $href = eval { $caldav->NewEvent($cal->{id}, $ev) };
+        if (my $err = $@) {
+            $err =~ s/ at \S+ line \d+.*//s;
+            warn "Event FAILED: $err";
+            # Should return that as a toast
+            next;
+        }
+        $created++;
+        # Should collect/count these and send that as a toast
+    }
+
+    # maybe somehow mark some events as imported here?!
+    return $c->redirect_to($c->url_for("/results")->query( "request-id" => $request_id ));
 };
 
 app->start;
