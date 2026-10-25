@@ -88,7 +88,7 @@ sub config_paths {
 
 my $config = config();
 
-$config->{upload_dir} //= File::Spec->catdir( dirname($0),  '../uploads' );
+$config->{upload_dir} //= $ENV{CAPTURE_AGENDA_UPLOAD_DIR} || File::Spec->catdir( dirname($0),  '../uploads' );
 
 my $runner = ZAI::Runner->new(
     maybe api_base    => $config->{zai_api_base},
@@ -239,6 +239,18 @@ get '/thumbnail/<*image>.0.<:ext>' => [ ext => ['bmp','gif','jpg','jpeg','pdf','
     $c->render_file(
         filepath => $inflight{ $image_id }->{images}->[0],
         content_disposition => 'inline',
+    );
+};
+
+get '/ics/<:id>.ics' => [ id => qr/[0-9a-f]{32}/ ] => sub( $c ) {
+    my $id  = $c->param('id');
+    my $ics = path( $config->{upload_dir}, "$id.ics" );
+    return $c->reply->not_found unless -f $ics;
+    $c->render_file(
+        filepath     => "$ics",
+        filename     => "$id.ics",
+        content_type => 'text/calendar; charset=utf-8',
+        # attachment disposition is the plugin default
     );
 };
 
