@@ -10,6 +10,7 @@ use File::Spec;
 use File::Basename 'dirname';
 use YAML::Tiny 'LoadFile';
 use Text::JSCalendar;
+use PerlX::Maybe;
 
 our $VERSION = '0.01';
 
@@ -93,7 +94,7 @@ my $runner = ZAI::Runner->new(
     api_base    => $config->{zai_api_base},
     api_key     => $config->{zai_api_key},
     agent_name  => "ics-import/$VERSION",
-    model       => $config->{zai_model},
+    model       => maybe $config->{zai_model},
     prompt      => $EXTRACTION_PROMPT,
     temperature => 0.1,
     max_tokens  => 8192,
