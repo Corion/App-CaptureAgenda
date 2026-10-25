@@ -334,7 +334,6 @@ __END__
 
 __DATA__
 @@ htmx-header.html.ep
-<meta htmx.config.allowScriptTags="true">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
 <link rel="manifest" href="<%= url_for('/manifest.json') %>">
 <meta name="theme-color" content="#fbbf24">
