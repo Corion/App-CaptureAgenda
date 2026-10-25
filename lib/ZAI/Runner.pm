@@ -4,6 +4,7 @@ use experimental 'signatures';
 
 use File::Spec;
 use File::Temp;
+use HTTP::Tiny;
 use Carp 'croak';
 use MIME::Base64 qw(encode_base64);
 use Moo 2;
@@ -57,11 +58,14 @@ has 'agent_name' => (
 
 has 'json' => (
     is => 'lazy',
-    default => sub { JSON::PP->new->canonical(1) },
+    # utf8 mode: encode() yields UTF-8 bytes for the HTTP body,
+    # decode() yields character strings from a UTF-8 byte body.
+    default => sub { JSON::PP->new->canonical(1)->utf8 },
 );
 
 has 'model' => (
     is => 'ro',
+    default => 'glm-5.3',
 );
 
 has 'api_base' => (
@@ -147,7 +151,7 @@ sub build_prompt( $self, %args ) {
     my $payload = {
         model       => ($args{ model } // $self->model),
         messages    => [ { role => 'user', content => \@parts } ],
-        temperature => $temperature,
+        temperature => $args{ temperature },
         max_tokens  => $self->max_tokens,
     };
 
@@ -179,9 +183,9 @@ sub build_prompt_request( $self, %args ) {
 }
 
 sub decode_response( $self, $res_body ) {
-    my $json   = $self->json;
-    my $data   = $json->decode($res_body);
-    return ($data, undef)
+    my $data = eval { $self->json->decode( $res_body ) };
+    return ( undef, "JSON decode error: $@" ) if $@;
+    return ( $data, undef );
 }
 
 =head2 C<< ->pdf_to_image_parts $filename >>
@@ -233,7 +237,7 @@ sub run_request( $self, %args ) {
 
     unless ($res->{success}) {
         my $detail = eval {
-            my $d = JSON::PP->new->decode($res->{content});
+            my $d = JSON::PP->new->utf8->decode($res->{content});
             $d->{error}{message} // $d->{message} // '';
         } // '';
         return (undef, sprintf "z.ai request failed: %s %s %s\n",

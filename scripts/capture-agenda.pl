@@ -9,7 +9,6 @@ use Digest::MD5 'md5_hex';
 use File::Spec;
 use File::Basename 'dirname';
 use YAML::Tiny 'LoadFile';
-use Encode 'decode';
 use Text::JSCalendar;
 
 our $VERSION = '0.01';
@@ -128,7 +127,7 @@ post '/extract' => sub ( $c ) {
         if( -f $ics ) {
             $inflight{ $request_id }->{done} = 1;
             $inflight{ $request_id }->{images} = [glob "$config->{upload_dir}/$request_id.*.*"];
-            $inflight{ $request_id }->{content} = path($ics)->slurp();
+            $inflight{ $request_id }->{content} = path($ics)->slurp('UTF-8');
             my $jsc = Text::JSCalendar->new();
             $inflight{ $request_id }->{events} = [sort { $a->{start} cmp $b->{start} } $jsc->vcalendarToEvents( $inflight{ $request_id }->{content})];
             return $c->redirect_to($c->url_for("/results")->query( "request-id" => $request_id ));
@@ -182,8 +181,9 @@ post '/extract' => sub ( $c ) {
             # XXX Should display an error to the user, but we bail
             return
         };
-        $inflight{ $request_id }->{content} = decode('UTF-8', $res->{choices}->[0]->{message}->{content});
-        $inflight{ $request_id }->{reqsoning_content} = decode('UTF-8', $res->{choices}->[0]->{message}->{reasoning_content});
+        # Runner's utf8-mode JSON hands us character strings already
+        $inflight{ $request_id }->{content} = $res->{choices}->[0]->{message}->{content};
+        $inflight{ $request_id }->{reasoning_content} = $res->{choices}->[0]->{message}->{reasoning_content} // '';
 
         my $jsc = Text::JSCalendar->new();
         $inflight{ $request_id }->{events} = [sort { $a->{start} cmp $b->{start} } $jsc->vcalendarToEvents( $inflight{ $request_id }->{content})];
@@ -193,7 +193,7 @@ post '/extract' => sub ( $c ) {
 
 # XXX also save the prompt and additional instructions here
         path($config->{upload_dir})->child("$request_id.ics")->spew( $inflight{ $request_id }->{content}, 'UTF-8');
-        path($config->{upload_dir})->child("$request_id.reasoning.txt")->spew( $inflight{ $request_id }->{reqsoning_content}, 'UTF-8');
+        path($config->{upload_dir})->child("$request_id.reasoning.txt")->spew( $inflight{ $request_id }->{reasoning_content}, 'UTF-8');
 
     })
     ->catch(sub {
