@@ -360,8 +360,6 @@ htmx.on("htmx:error", (elt) => { console.log("htmx:error",elt)});
 </head>
 <body
     id="body"
-    hx-ext="morphdom-swap"
-    hx-swap="morphdom"
 >
 <div class="container-fluid" id="container">
     <main class="col">
