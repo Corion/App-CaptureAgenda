@@ -208,8 +208,7 @@ sub pdf_to_image_parts( $self, $pdf ) {
         or die "$pdftoppm failed to convert '$pdf' (status $?)\n";
 
     my @pages = sort glob("$prefix*.png");
-    die "pdftoppm produced no pages for '$pdf'\n" unless @pages;
-    verbose( sprintf "Converted PDF to %d page image(s)", scalar(@pages) );
+    croak "pdftoppm produced no pages for '$pdf'\n" unless @pages;
 
     return map { {
         type      => 'image_url',
