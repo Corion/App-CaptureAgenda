@@ -142,16 +142,9 @@ sub existing_calendar_events( $caldav, $cal ) {
     return %existing;
 }
 
-sub import_events( $caldav, $cal, $existing, $events ) {
+sub import_events( $caldav, $cal, $events ) {
     my ( $created, $failed ) = ( 0, 0 );
     for my $ev ( $events->@* ) {
-        my $uid  = $ev->{uid};
-
-        # UID filename component (mirrors Net::CalDAVTalk::NewEvent)
-        (my $uidfile = $uid) =~ tr/a-zA-Z0-9\@._-//cd;
-
-        next if $existing->{"$uidfile.ics"};
-
         my $href = eval { $caldav->NewEvent($cal->{id}, $ev) };
         if( my $err = $@ ) {
             $err =~ s/ at \S+ line \d+.*//s;
@@ -365,15 +358,14 @@ post '/import' => sub( $c ) {
     my $ics = path($ics_name)->slurp('UTF-8');
     my @events = $caldav->vcalendarToEvents($ics);
 
-    my %existing = existing_calendar_events( $caldav, $cal );
-
     my @import;
-    # fish out the events we actually want
+    # fish out the events we actually want; user selection is
+    # authoritative -- re-importing a UID updates the event in place
     for my $id ($c->every_param('import')->@*) {
         push @import, grep { $id eq $_->{uid} } @events;
     };
 
-    my ( $created, $failed ) = import_events( $caldav, $cal, \%existing, \@import );
+    my ( $created, $failed ) = import_events( $caldav, $cal, \@import );
 
     return $c->redirect_to($c->url_for("/results")->query(
         "request-id" => $request_id,
