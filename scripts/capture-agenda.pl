@@ -55,32 +55,31 @@ sub config_paths {
     return ($candidates[0] // 'config.yaml', 0);
 }
 
-    sub config {
-
-        my %cfg;
-        my ($path, $exists) = config_paths();
-        if ($exists) {
-            my $yaml = eval { YAML::Tiny->read($path) };
-            my $data = $yaml ? $yaml->[0] : undef;
-            unless (ref $data eq 'HASH') {
-                warn "Warning: config file $path is not valid YAML -- ignored\n";
-                $data = {};
-            }
-            %cfg = %$data;
+sub config {
+    my %cfg;
+    my ($path, $exists) = config_paths();
+    if ($exists) {
+        my $yaml = eval { YAML::Tiny->read($path) };
+        my $data = $yaml ? $yaml->[0] : undef;
+        unless (ref $data eq 'HASH') {
+            warn "Warning: config file $path is not valid YAML -- ignored\n";
+            $data = {};
         }
-
-        # environment overrides
-        my %env = (
-            zai_api_key  => $ENV{ZAI_API_KEY},
-            zai_model    => $ENV{ZAI_MODEL},
-            zai_api_base => $ENV{ZAI_API_BASE},
-        );
-        for my $k (keys %env) {
-            $cfg{$k} = $env{$k} if defined $env{$k};
-        }
-
-        return \%cfg;
+        %cfg = %$data;
     }
+
+    # environment overrides
+    my %env = (
+        zai_api_key  => $ENV{ZAI_API_KEY},
+        zai_model    => $ENV{ZAI_MODEL},
+        zai_api_base => $ENV{ZAI_API_BASE},
+    );
+    for my $k (keys %env) {
+        $cfg{$k} = $env{$k} if defined $env{$k};
+    }
+
+    return \%cfg;
+}
 
 my $config = config();
 
