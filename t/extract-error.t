@@ -71,6 +71,9 @@ my $port = $daemon->ports->[0];
 $ENV{ZAI_API_KEY}              = 'test-key';
 $ENV{ZAI_API_BASE}             = "http://127.0.0.1:$port";
 $ENV{CAPTURE_AGENDA_UPLOAD_DIR} = $uploads->to_string;
+
+$ENV{TEST_SKIP_CALDAV} = 1;
+
 # The app keeps its templates in the script's __DATA__ section and reads
 # them via package main -- but this test file owns main and has no
 # __DATA__, so requiring the app never populates main::DATA and every

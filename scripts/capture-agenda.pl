@@ -116,6 +116,9 @@ get '/index.html' => sub( $c ) {
 };
 
 sub get_calendar( $config ) {
+    return (undef,undef)
+        if $ENV{TEST_SKIP_CALDAV};
+
     my $url  = $config->{url}  or die "No CalDAV URL configured ('url' in the YAML config)\n";
     my $user = $config->{user} or die "No CalDAV user configured ('user' in the YAML config)\n";
     my $pass = $config->{password};
@@ -274,7 +277,11 @@ get '/calendar' => sub( $c ) {
     $c->stash( 'type' => $type );
 
     my ($caldav,$cal) = get_calendar( $config );
-    my %existing = existing_calendar_events( $caldav, $cal );
+
+    my %existing;
+    if( $caldav) {
+        %existing = existing_calendar_events( $caldav, $cal );
+    }
     $c->stash( existing => \%existing );
 
     return $c->render( 'calendar-frag' );
@@ -292,7 +299,10 @@ get '/results' => sub ( $c ) {
     $c->stash( 'result_type' => $type );
 
     my ($caldav,$cal) = get_calendar($config);
-    my %existing = existing_calendar_events( $caldav, $cal );
+    my %existing;
+    if( $caldav) {
+        %existing = existing_calendar_events( $caldav, $cal );
+    }
     $c->stash( existing => \%existing );
 
     return $c->render( 'results' );
