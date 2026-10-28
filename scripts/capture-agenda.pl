@@ -316,7 +316,8 @@ get '/thumbnail/<*image>.0.<:ext>' => [ ext => ['bmp','gif','jpg','jpeg','pdf','
     );
 };
 
-get '/ics/<:id>.ics' => [ id => qr/[0-9a-f]{32}/ ] => sub( $c ) {
+my $re_session = qr/[0-9a-f]{32}/;
+get '/ics/<:id>.ics' => [ id => $re_session ] => sub( $c ) {
     my $id  = $c->param('id');
     my $ics = path( $config->{upload_dir}, "$id.ics" );
     return $c->reply->not_found unless -f $ics;
@@ -331,6 +332,11 @@ get '/ics/<:id>.ics' => [ id => qr/[0-9a-f]{32}/ ] => sub( $c ) {
 post '/import' => sub( $c ) {
     # import into $calendar
     my $request_id = $c->param('request-id');
+    if( $request_id !~ /\A$re_session\z/ ) {
+        # Malformed request id
+        return $c->reply->not_found(404);
+    }
+
     my ($caldav,$cal) = get_calendar( $config );
     my $skip_existing = 0;
 
