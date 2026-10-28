@@ -57,15 +57,26 @@ sub config_paths {
 
 sub config {
     my %cfg;
+
+    my %default = (
+        "url"      => "https://example.com/",
+        "user"     => "example-user",
+        "password" => "example-password",
+        "calendar" => "Work-calendar",
+    );
+
     my ($path, $exists) = config_paths();
     if ($exists) {
         my $yaml = eval { YAML::Tiny->read($path) };
         my $data = $yaml ? $yaml->[0] : undef;
         unless (ref $data eq 'HASH') {
             warn "Warning: config file $path is not valid YAML -- ignored\n";
-            $data = {};
+            # Supply some defaults
+            $data = \%default;
         }
         %cfg = %$data;
+    } else {
+        %cfg = %default;
     }
 
     # environment overrides
