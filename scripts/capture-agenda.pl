@@ -59,10 +59,10 @@ sub config {
     my %cfg;
 
     my %default = (
-        "url"        => "https://example.com/",
-        "user"       => "example-user",
-        "password"   => "example-password",
-        "calendar"   => "Work-calendar",
+        "url"        => undef,
+        "user"       => undef,
+        "password"   => undef,
+        "calendar"   => undef,
         "ssl_verify" => 1,
     );
 
@@ -117,9 +117,9 @@ get '/index.html' => sub( $c ) {
 
 sub get_calendar( $config ) {
     return (undef,undef)
-        if $ENV{TEST_SKIP_CALDAV};
+        if ! $config->{url}; # no URL means no CalDAV support
 
-    my $url  = $config->{url}  or die "No CalDAV URL configured ('url' in the YAML config)\n";
+    my $url  = $config->{url};
     my $user = $config->{user} or die "No CalDAV user configured ('user' in the YAML config)\n";
     my $pass = $config->{password};
     die "No CalDAV password given. Set 'password' in the YAML config.\n"
