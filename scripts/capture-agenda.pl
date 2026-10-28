@@ -129,7 +129,7 @@ sub get_calendar( $config ) {
         url      => $url,
         user     => $user,
         password => $pass,
-        SSL_options => { $config->{ssl_verify} // 1 },
+        SSL_options => { SSL_verify_mode => $config->{ssl_verify} // 1 },
     );
     my $cal = $caldav->GetCalendar($config->{calendar});
     return ($caldav,$cal);
