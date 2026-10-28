@@ -55,10 +55,7 @@ sub config_paths {
     return ($candidates[0] // 'config.yaml', 0);
 }
 
-{
-    my %CONFIG_CACHE;
     sub config {
-        return \%CONFIG_CACHE if %CONFIG_CACHE;
 
         my %cfg;
         my ($path, $exists) = config_paths();
@@ -82,10 +79,8 @@ sub config_paths {
             $cfg{$k} = $env{$k} if defined $env{$k};
         }
 
-        %CONFIG_CACHE = %cfg;
-        return \%CONFIG_CACHE;
+        return \%cfg;
     }
-}
 
 my $config = config();
 
