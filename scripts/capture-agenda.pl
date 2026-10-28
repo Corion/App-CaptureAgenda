@@ -59,10 +59,11 @@ sub config {
     my %cfg;
 
     my %default = (
-        "url"      => "https://example.com/",
-        "user"     => "example-user",
-        "password" => "example-password",
-        "calendar" => "Work-calendar",
+        "url"        => "https://example.com/",
+        "user"       => "example-user",
+        "password"   => "example-password",
+        "calendar"   => "Work-calendar",
+        "ssl_verify" => 1,
     );
 
     my ($path, $exists) = config_paths();
@@ -125,7 +126,7 @@ sub get_calendar( $config ) {
         url      => $url,
         user     => $user,
         password => $pass,
-        SSL_options => { SSL_verify_mode => 0 },
+        SSL_options => { $config->{ssl_verify} // 1 },
     );
     my $cal = $caldav->GetCalendar($config->{calendar});
     return ($caldav,$cal);
