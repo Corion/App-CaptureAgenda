@@ -142,6 +142,28 @@ sub existing_calendar_events( $caldav, $cal ) {
     return %existing;
 }
 
+sub import_events( $caldav, $cal, $existing, $events ) {
+    my ( $created, $failed ) = ( 0, 0 );
+    for my $ev ( $events->@* ) {
+        my $uid  = $ev->{uid};
+
+        # UID filename component (mirrors Net::CalDAVTalk::NewEvent)
+        (my $uidfile = $uid) =~ tr/a-zA-Z0-9\@._-//cd;
+
+        next if $existing->{"$uidfile.ics"};
+
+        my $href = eval { $caldav->NewEvent($cal->{id}, $ev) };
+        if( my $err = $@ ) {
+            $err =~ s/ at \S+ line \d+.*//s;
+            warn "Event FAILED: $err";
+            $failed++;
+            next;
+        }
+        $created++;
+    }
+    return ( $created, $failed );
+}
+
 my %inflight;
 post '/extract' => sub ( $c ) {
     my @i = $c->every_param('images')->@*;
@@ -338,16 +360,12 @@ post '/import' => sub( $c ) {
     }
 
     my ($caldav,$cal) = get_calendar( $config );
-    my $skip_existing = 0;
 
     my $ics_name = File::Spec->catfile( $config->{upload_dir}, "$request_id.ics");
     my $ics = path($ics_name)->slurp('UTF-8');
     my @events = $caldav->vcalendarToEvents($ics);
 
-    my %existing;
-    if ($skip_existing) {
-        %existing = existing_calendar_events( $caldav, $cal );
-    }
+    my %existing = existing_calendar_events( $caldav, $cal );
 
     my @import;
     # fish out the events we actually want
@@ -355,30 +373,13 @@ post '/import' => sub( $c ) {
         push @import, grep { $id eq $_->{uid} } @events;
     };
 
-    my $created = 0;
-    for my $ev (@import) {
-        my $uid  = $ev->{uid};
+    my ( $created, $failed ) = import_events( $caldav, $cal, \%existing, \@import );
 
-        # UID filename component (mirrors Net::CalDAVTalk::NewEvent)
-        (my $uidfile = $uid) =~ tr/a-zA-Z0-9\@._-//cd;
-
-        if ($existing{"$uidfile.ics"}) {
-            #warn "  [$i] skip existing $line\n";
-            next;
-        }
-        my $href = eval { $caldav->NewEvent($cal->{id}, $ev) };
-        if (my $err = $@) {
-            $err =~ s/ at \S+ line \d+.*//s;
-            warn "Event FAILED: $err";
-            # Should return that as a toast
-            next;
-        }
-        $created++;
-        # Should collect/count these and send that as a toast
-    }
-
-    # maybe somehow mark some events as imported here?!
-    return $c->redirect_to($c->url_for("/results")->query( "request-id" => $request_id ));
+    return $c->redirect_to($c->url_for("/results")->query(
+        "request-id" => $request_id,
+        imported     => $created,
+        failed       => $failed,
+    ));
 };
 
 app->start;
@@ -492,6 +493,19 @@ htmx.on("htmx:error", (elt) => { console.log("htmx:error",elt)});
 % my $status = $request->{done} ? ($request->{error} ? "failed" : "done") : "in progress";
 % $result_type //= 'list';
 <div id="request-id"><%= $request_id %> - <%= $status %></div>
+% my $imported = (param('imported') // 0) =~ /^(\d+)$/ ? $1 : 0;
+% my $failed_count = (param('failed') // 0) =~ /^(\d+)$/ ? $1 : 0;
+% if( $imported || $failed_count ) {
+    <div class="toast-container position-fixed top-0 end-0 p-3">
+        <div id="import-toast" class="toast align-items-center text-bg-<%= $failed_count ? 'warning' : 'success' %>" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">Imported <%= $imported %> event(s)<%= $failed_count ? ", $failed_count failed" : '' %>.</div>
+                <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    </div>
+    <script>bootstrap.Toast.getOrCreateInstance(document.getElementById('import-toast'), { delay: 5000 }).show()</script>
+% }
 % if( $request->{error} ) {
     <div id="poll-results" class="alert alert-danger">Extraction failed: <%= $request->{error} %></div>
 % } elsif( $request->{done} ) {
