@@ -442,7 +442,7 @@ htmx.on("htmx:error", (elt) => { console.log("htmx:error",elt)});
 <table>
 <thead>
 <tr>
-    <th><input type="checkbox" onchange="((el) => {let ch=document.getElementsByName('import'); for (let b of ch) {b.checked=el.checked}})(this)"></a></th>
+    <th><input type="checkbox" onchange="((el) => {let ch=document.getElementsByName('import'); for (let b of ch) {b.checked=el.checked}})(this)"></th>
     <th>Date/Time</th>
     <th>Title</th>
     <th>Description</th>
